@@ -1,0 +1,189 @@
+---
+title: "R_Project"
+author: "R_Mark_down"
+date: "4/28/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loadpackages, warning=FALSE, message=FALSE}
+pacman::p_load(data.table, tidyverse, ggplot2, ggcorrplot, pROC, ROSE,corrplot, dplyr, caret, MASS, caTools, smotefamily, DMwR, rpart, glmnet,reshape, gridExtra, MASS, MLmetrics, gplots, ggmap,mlbench, gains)
+options(digits = 3)
+knitr::opts_chunk$set(echo = TRUE, fig.width=12, fig.height=6, fig.path = 'Figs/')
+theme_set(theme_classic())
+
+```
+
+
+```{r readData}
+
+## Read CSV file
+cc <- read.csv("creditcard.csv")
+
+
+## Examine the structure of the data set
+str(cc)
+
+##Descriptive stats
+summary(cc)
+
+## Create the data.table
+credit.dt <- setDT(cc)
+credit.dt
+
+#Descriptive stats by Class
+temp1 <- credit.dt[, .(min.amount=min(Amount), max.amount=max(Amount), mean.amount=mean(Amount), med.amount=median(Amount), sd.amount=sd(Amount)), by=Class]
+temp1
+
+##Check for missing values
+colSums(is.na(cc))
+```
+
+
+```{r prep Data}
+
+#Remove 'Time' variable
+cc.data <- credit.dt[,-1]
+
+
+#Change 'Class' variable to factor
+cc.data$Class <- as.factor(cc.data$Class)
+levels(cc.data$Class) <- c("Not_Fraud", "Fraud")
+
+head(cc.data)
+#Set seed to make partition reproducible
+set.seed(12345) 
+
+#Train 70% of the dataset
+train.index <- createDataPartition(credit.dt$Class, p = 0.7, list = FALSE)
+
+#Collect all the columns with training row ID into training set
+train.data <- cc.data[train.index, ]
+
+#Remaining 30% of dataset for validation
+test.data <- cc.data[-train.index, ]
+
+head(train.data)
+head(test.data)
+```
+
+```{r LDA}
+
+set.seed(12345)
+up_train <- upSample(x = train.data[, -30],
+  y = train.data$Class)
+
+table(up_train$Class)
+
+set.seed(12345)
+# Build up-sampled model
+up_fit <- rpart(Class ~ ., data = up_train)
+
+# AUC on up-sampled data
+pred_up <- predict(up_fit, newdata = test.data)
+
+# Upsample Test Data
+set.seed(12345)
+up_test <- upSample(x = test.data[, -30], y = test.data$Class)
+
+table(up_test$Class)
+
+ # Estimate preprocessing parameters
+#norm.values  <- preProcess(train.data, method = c("center", "scale"))
+norm.values  <- preProcess(up_train, method = c("center", "scale"))   
+ # Transform the data using the estimated parameters
+cc.train.norm <- predict(norm.values, up_train)
+cc.valid.norm <- predict(norm.values, up_test)
+  
+
+lda1 <- lda(Class~., data = cc.train.norm)
+lda1
+
+lda2<-lda(Class~., data = cc.valid.norm)
+lda2
+
+#Prior Probabilities 
+lda1$prior
+
+lda1$counts
+
+lda2$prior
+
+lda2$counts
+
+lda1
+
+#Prediction with training and test data
+pred1<-predict(lda1,cc.train.norm)
+pred1
+pred.sample<-predict(lda1, cc.train.norm[1:5, ])
+names(pred.sample)
+
+pred2<-predict(lda2,cc.valid.norm)
+pred2
+summary(pred2)
+
+#Plots an Histograms
+plot(lda1) # LDA plot for training data
+plot(lda2) # LDA plot for validation data 
+title(main = 'LDA Plot with Validation Data')
+ldahist(pred1$x[,1], 
+        g=cc.train.norm$Class,
+        col = 3)
+
+
+# Confusion matrix
+acc1<-table(pred1$class, cc.train.norm$Class)
+print("Confusion Matrix for Train Data")
+acc1
+
+acc2<-table(pred2$class, cc.valid.norm$Class)
+print("Confusion Matrix for Test Data")
+acc2
+
+#Precision score 
+precision <- acc2[2,2]/(acc2[2,2]+acc2[2,1])
+precision
+
+#Recall
+recall <- acc2[2,2]/(acc2[2,2]+acc2[1,2])
+recall
+
+#Specificity
+specificity <- acc2[1,1]/(acc2[1,1]+acc2[2,1])
+specificity
+
+#F Score
+fscore <- (precision*recall)/(precision+recall)
+fscore
+
+confusionMatrix(acc2)
+
+print('ROC')
+roc.curve(cc.valid.norm$Class, pred2$class, plotit = TRUE)
+
+#lift charts
+gain <- gains(cc.valid.norm$Class, pred2$Class)
+plot(c(0, gain$cume.pct.of.total*sum(cc$Class)) ~ c(0, gain$cume.obs), 
+     xlab = "# transactions", ylab = "Cumulative", type="l",
+     col="blue1")
+lines(c(0,sum(cc$actual))~c(0,dim(df)[1]), col="red1", lty=2)
+
+# Decile-wise lift chart
+barplot(gain$mean.resp/mean(Class), names.arg = gain$Class, space = 1.3,
+        xlab = "Percentile", ylab = "Mean Response", main = "Decile-wise lift chart",
+        col = "blue", border = NA)
+
+
+```
+
+
+
+
+
+
+
+
