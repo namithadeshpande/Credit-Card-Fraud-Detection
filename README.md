@@ -1,4 +1,5 @@
 # Credit-Card-Fraud-Detection
+![](https://unsplash.com/photos/bqjswIxbhEE?utm_source=unsplash&utm_medium=referral&utm_content=creditShareLink)
 
 This repository describes my group project on Credit Card Fraud Detection. 
 
