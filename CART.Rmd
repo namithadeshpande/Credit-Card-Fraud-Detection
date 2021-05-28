@@ -1,0 +1,160 @@
+---
+title: "CART Models"
+author: "Namitha Niteen Deshpande"
+date: "23/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loadpackages, warning=FALSE, message=FALSE, results='hide'}
+
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(data.table, tidyverse, ggplot2, ggcorrplot, pROC, ROSE,
+              corrplot, dplyr, caret, MASS, caTools, smotefamily, DMwR, rpart, rpart.plot, randomForest, gridExtra, ggpubr, cvms, rattle)
+
+theme_set(theme_classic())
+```
+## Read CSV file and create DataTable 
+
+```{r readData}
+
+## Read CSV file
+cc <- read.csv("creditcard.csv")
+
+## Examine the structure of the data set
+str(cc)
+
+##Descriptive stats
+summary(cc)
+
+## Create the data.table
+credit.dt <- setDT(cc)
+credit.dt
+```
+
+```{r prepData}
+
+##caret::featurePlot(x=credit.dt[,2:29], y=credit.dt[,31])
+
+
+#Change 'Class' variable to factor
+credit.dt$Class <- as.factor(credit.dt$Class)
+
+```
+
+```{r splitData}
+
+#Set seed to make partition reproducible
+set.seed(123)
+training.index <- createDataPartition(credit.dt$Class, p = 0.7, list = FALSE)
+train.data <- credit.dt[training.index, ]
+test.data <- credit.dt[-training.index, ]
+
+```
+
+```{r upsampling}
+
+set.seed(12345)
+up_train <- upSample(x = train.data[, -31], y = train.data$Class)
+
+# Upsample Test Data
+set.seed(12345)
+up_test <- upSample(x = test.data[, -31], y = test.data$Class)
+```
+
+```{r CART Models}
+
+# Generate classification tree
+set.seed(1234)
+credit.tree <- rpart(Class ~ ., data = up_train, method = "class")
+print(credit.tree)
+
+#plotting the tree
+rpart.plot(credit.tree)
+
+#rules from the generated tree
+rpart.rules(credit.tree)
+
+#prediction
+test.pred <- predict(credit.tree, newdata = up_test, method = "class")
+test.pred <- as.data.table(test.pred)
+
+target.class <- as.factor(ifelse(test.pred[,2] > 0.5, "1", "0"))
+
+#confusion matrix with 50% probability
+confusionMatrix(target.class, up_test$Class, positive = "1")
+
+#area under the curve(AUC)
+roc.curve(up_test$Class, target.class, plotit = TRUE)
+
+#plotting fully grown tree
+full.tree <- rpart(Class ~ ., data = up_train, method = "class", cp = 0)
+rpart.plot(full.tree)
+
+#performance of fully grown tree on training set 
+full.train <- predict(full.tree, newdata = up_train, method = "class")
+full.train <- as.data.table(full.train)
+
+full.class <- as.factor(ifelse(full.train[,2] > 0.5, "1", "0"))
+confusionMatrix(full.class, up_train$Class, positive = "1")
+
+#performance of fully grown tree on test set 
+full.test <- predict(full.tree, newdata = up_test, method = "class")
+full.test <- as.data.table(full.test)
+
+full.target <- as.factor(ifelse(full.test[,2] > 0.5, "1", "0"))
+
+confusionMatrix(full.target, up_test$Class, positive = "1")
+
+#pruning
+printcp(credit.tree)
+plotcp(credit.tree)
+
+ptree <- prune(credit.tree, cp= credit.tree$cptable[which.min(credit.tree$cptable[,"xerror"]),"CP"])
+
+fancyRpartPlot(ptree, uniform=TRUE, main="Pruned Classification Tree")
+```
+
+
+```{r Bagging}
+#bagging using random forest technique
+#Bagging
+set.seed(1234)
+
+memory.limit(size = 15000)
+
+bag.credit <- randomForest(as.factor(Class) ~ ., data = up_train, ntree = 300, mtry = 6, importance = TRUE)
+bag.credit
+
+#variable importance
+importance <- data.frame(bag.credit$importance)
+
+#plot the variable importance 
+Imp1 <- ggplot(importance, aes(x=reorder(rownames(importance),MeanDecreaseGini), y=MeanDecreaseGini)) +
+  geom_bar(stat="identity", fill="tomato", colour="black") +
+  coord_flip() + theme_bw(base_size = 8) +
+  labs(title="Prediction using RandomForest with 100 trees", subtitle="Variable importance (MeanDecreaseGini)", x="Variable", y="Variable importance (MeanDecreaseGini)")
+
+Imp2 <- ggplot(importance, aes(x=reorder(rownames(importance),MeanDecreaseAccuracy), y=MeanDecreaseAccuracy)) +
+  geom_bar(stat="identity", fill="lightblue", colour="black") +
+  coord_flip() + theme_bw(base_size = 8) +
+  labs(title="Prediction using RandomForest with 100 trees", subtitle="Variable importance (MeanDecreaseAccuracy)", x="Variable", y="Variable importance (MeanDecreaseAccuracy)")
+
+gt <- arrangeGrob(Imp1, Imp2, ncol=2)
+as_ggplot(gt)
+
+#prediction
+rf.pred <- as.factor(predict(bag.credit, newdata = up_test))
+
+#confusion matrix
+conf <- confusionMatrix(rf.pred, up_test$Class, positive = "1")
+conf
+
+#area under the curve(AUC)
+roc.curve(up_test$Class, rf.pred, plotit = TRUE)
+```
+
+
