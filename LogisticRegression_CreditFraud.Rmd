@@ -1,4 +1,35 @@
+---
+title: "BUAN6356_Group8_Project_CreditCardFraud"
+author: "Stacey Kirkpatrick"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_notebook:
+    theme: spacelab
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  html_document:
+    toc: yes
+editor_options:
+  chunk_output_type: inline
+---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Load packages
+
+```{r loadpackages, warning=FALSE, message=FALSE, results='hide'}
+
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(data.table, tidyverse, ggplot2, ggcorrplot, pROC, ROSE,gains,
+              corrplot, dplyr, caret, MASS, caTools, smotefamily, DMwR, rpart)
+
+theme_set(theme_classic())
+```
 
 ```{r logistic upsampled}
 
