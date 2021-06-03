@@ -15,3 +15,10 @@ Details of the dataset include the following:
 
 # Project Objectives
 Our primary goal is to analyze the given credit card dataset using different data mining and machine learning algorithms to detect fraudulent credit card transactions. This involves modeling past credit card transactions with the knowledge of the ones that were actually fraudulent. This model is then used to identify whether a new transaction is fraudulent or not. Our objective is to detect 100% of the fraudulent transactions while minimizing the incorrect fraud classifications.
+
+# Algorithms
+* Logistic Regression
+* Linear Discriminant analysis
+* CART Decision Trees
+* Random Forest
+
