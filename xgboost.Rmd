@@ -1,0 +1,53 @@
+---
+title: "XGBoost"
+author: "Namitha Deshpande"
+date: "June 1, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loadpackages}
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(data.table, tidyverse, ggplot2, pROC,
+              corrplot, dplyr, caret, MASS, caTools)
+
+theme_set(theme_classic())
+```
+## Read CSV file and create DataTable 
+
+```{r readData}
+## Read CSV file
+cc <- read.csv("creditcard.csv")
+## Examine the structure of the data set
+str(cc)
+##Descriptive stats
+summary(cc)
+## Create the data.table
+credit.dt <- setDT(cc)
+credit.dt
+```
+
+```{r prepData}
+##caret::featurePlot(x=credit.dt[,2:29], y=credit.dt[,31])
+#Change 'Class' variable to factor
+credit.dt$Class <- as.factor(credit.dt$Class)
+```
+
+```{r splitData}
+#Set seed to make partition reproducible
+set.seed(123)
+training.index <- createDataPartition(credit.dt$Class, p = 0.7, list = FALSE)
+train.data <- credit.dt[training.index, ]
+test.data <- credit.dt[-training.index, ]
+```
+
+```{r upsampling}
+set.seed(12345)
+up_train <- upSample(x = train.data[, -31], y = train.data$Class)
+# Upsample Test Data
+set.seed(12345)
+up_test <- upSample(x = test.data[, -31], y = test.data$Class)
+```
