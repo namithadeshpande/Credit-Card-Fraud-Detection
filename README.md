@@ -21,4 +21,5 @@ Our primary goal is to analyze the given credit card dataset using different dat
 * Linear Discriminant analysis
 * CART Decision Trees
 * Random Forest
+* XGBoost
 
