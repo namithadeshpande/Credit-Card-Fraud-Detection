@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r loadpackages}
 if(!require("pacman")) install.packages("pacman")
 pacman::p_load(data.table, tidyverse, ggplot2, pROC,
-              corrplot, dplyr, caret, MASS, caTools)
+              corrplot, dplyr, caret, MASS, caTools, xgboost, Matrix, MLmetrics)
 
 theme_set(theme_classic())
 ```
@@ -50,4 +50,40 @@ up_train <- upSample(x = train.data[, -31], y = train.data$Class)
 # Upsample Test Data
 set.seed(12345)
 up_test <- upSample(x = test.data[, -31], y = test.data$Class)
+```
+
+```{r xgboost implementation}
+#data prep
+xgb_train <- sparse.model.matrix(Class ~ .-1, data = up_train)
+levels(up_train$Class) <- c("Not_Fraud", "Fraud")
+
+xgb_test <- sparse.model.matrix(Class ~ . -1, data = up_test)
+
+#cross validation
+ctrl_xgb <- trainControl(method = "cv",
+                         number = 3, # 3-fold cross-validation
+                         summaryFunction=prSummary, 
+                         classProbs=TRUE,
+                         allowParallel = TRUE)
+```
+
+```{r}
+#model training
+set.seed(123)
+xgb_model <- train(x = xgb_train,
+                             y = up_train$Class,
+                             method = "xgbTree",
+                             metric = "AUC",
+                             trControl = ctrl_xgb)
+```
+
+```{r}
+#predicting using the model
+xgb_pred <- predict(xgb_model, xgb_test)
+pred <- as.data.table(xgb_pred)
+```
+
+```{r}
+#confusion matrix to check performance
+ConfusionMatrix(pred$xgb_pred, up_test$Class)
 ```
